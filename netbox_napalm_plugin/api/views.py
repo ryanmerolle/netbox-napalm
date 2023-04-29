@@ -1,3 +1,5 @@
+import pkg_resources
+import ssl
 from dcim.models import Device
 from django.shortcuts import get_object_or_404, redirect, render
 from extras.plugins import get_plugin_config
@@ -109,6 +111,14 @@ class NapalmPlatformConfigViewSet(NetBoxModelViewSet):
                 password = request.headers[header]
             elif key:
                 optional_args[key.lower()] = request.headers[header]
+
+        # Workaround for pyeapi < 0.8.5 since it does not handle SSL correctly w/ Python 3.10 and above
+        if driver == napalm.get_network_driver("eos") and pkg_resources.get_distribution('pyeapi').version <= '0.8.4':
+            ctx = ssl.create_default_context()
+            ctx.set_ciphers("DEFAULT")
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            optional_args["context"] = ctx
 
         # Connect to the device
         d = driver(
